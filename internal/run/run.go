@@ -4,6 +4,8 @@ package run
 import (
 	"os"
 	"os/exec"
+
+	"starnix.net/pac/internal/progress"
 )
 
 // Runner executes external commands.
@@ -13,6 +15,9 @@ type Runner interface {
 	Run(name string, args ...string) error
 	// Capture executes name with args and returns its stdout.
 	Capture(name string, args ...string) (string, error)
+	// RunBar runs name with args, capturing its stdout to render a progress
+	// bar; stderr and stdin pass through to the terminal.
+	RunBar(name string, args ...string) error
 }
 
 // Real is the production Runner backed by os/exec.
@@ -22,6 +27,21 @@ func (Real) Run(name string, args ...string) error {
 	c := exec.Command(name, args...)
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return c.Run()
+}
+
+func (Real) RunBar(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	progress.Render(pipe, os.Stderr, 24) // blocks until the command closes stdout
+	return cmd.Wait()
 }
 
 func (Real) Capture(name string, args ...string) (string, error) {
@@ -53,6 +73,10 @@ func (f *Fake) record(name string, args []string) Call {
 }
 
 func (f *Fake) Run(name string, args ...string) error {
+	return f.record(name, args).Err
+}
+
+func (f *Fake) RunBar(name string, args ...string) error {
 	return f.record(name, args).Err
 }
 
