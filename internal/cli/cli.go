@@ -20,6 +20,7 @@ const usage = `pac -- one front door for pacman + flatpak
 Usage:
   pac update            update everything (alias: -Syu)
   pac install <name>    install from repos, aur-mirror, or flatpak (alias: -S)
+  pac remove <name>     remove an installed package (alias: -R)
   pac search <term>     search repos + aur-mirror + flatpak (alias: -Ss)
   pac --version         print version
   pac --help            show this help
@@ -35,6 +36,8 @@ func normalize(args []string) []string {
 		return append([]string{"update"}, args[1:]...)
 	case "-S":
 		return append([]string{"install"}, args[1:]...)
+	case "-R":
+		return append([]string{"remove"}, args[1:]...)
 	case "-Ss":
 		return append([]string{"search"}, args[1:]...)
 	default:
@@ -71,6 +74,12 @@ func Run(args []string, r run.Runner, stdin io.Reader, stdout, stderr io.Writer)
 			return 2
 		}
 		return cmd.Install(r, config.Load().Prefer, args[1], stdin, stdout, stderr)
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(stderr, "pac: remove requires a package name (usage: pac remove <name>)")
+			return 2
+		}
+		return cmd.Remove(r, args[1], stderr)
 	case "search":
 		term := strings.TrimSpace(strings.Join(args[1:], " "))
 		if term == "" {
