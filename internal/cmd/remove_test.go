@@ -33,6 +33,7 @@ func TestRemoveFlatpakInstalled(t *testing.T) {
 	f := &run.Fake{Results: []run.Call{
 		{Err: errors.New("not installed via pacman")}, // pacman -Qi fails
 		{},                                            // flatpak info: installed
+		{},                                            // flatpak uninstall: succeeds
 	}}
 	code := cmd.Remove(f, "com.discordapp.Discord", &bytes.Buffer{})
 	if code != 0 {
