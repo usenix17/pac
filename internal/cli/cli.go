@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"starnix.net/pac/internal/cmd"
 	"starnix.net/pac/internal/query"
@@ -38,36 +39,38 @@ func normalize(args []string) []string {
 }
 
 // Run executes pac with the given args and returns a process exit code.
-// out receives user-facing messages; r is the subprocess runner.
-func Run(args []string, r run.Runner, out io.Writer) int {
+// Normal output is written to stdout; errors (and usage shown because of an
+// error) go to stderr. r is the subprocess runner.
+func Run(args []string, r run.Runner, stdout, stderr io.Writer) int {
 	args = normalize(args)
 
 	if len(args) == 0 {
-		fmt.Fprint(out, usage)
+		fmt.Fprint(stdout, usage)
 		return 0
 	}
 	switch args[0] {
 	case "--help", "help":
-		fmt.Fprint(out, usage)
+		fmt.Fprint(stdout, usage)
 		return 0
 	case "--version":
-		fmt.Fprintf(out, "pac %s\n", Version)
+		fmt.Fprintf(stdout, "pac %s\n", Version)
 		return 0
 	case "update":
 		if err := cmd.Update(r); err != nil {
-			fmt.Fprintf(out, "pac: update failed: %v\n", err)
+			fmt.Fprintf(stderr, "pac: update failed: %v\n", err)
 			return 1
 		}
 		return 0
 	case "search":
-		if len(args) < 2 {
-			fmt.Fprintln(out, "usage: pac search <term>")
+		term := strings.TrimSpace(strings.Join(args[1:], " "))
+		if term == "" {
+			fmt.Fprintln(stderr, "pac: search requires a term (usage: pac search <term>)")
 			return 2
 		}
-		fmt.Fprint(out, query.Format(query.Search(r, args[1])))
+		fmt.Fprint(stdout, query.Format(query.Search(r, term)))
 		return 0
 	default:
-		fmt.Fprintf(out, "pac: unknown command %q (try `pac --help`)\n", args[0])
+		fmt.Fprintf(stderr, "pac: unknown command %q (try `pac --help`)\n", args[0])
 		return 2
 	}
 }
