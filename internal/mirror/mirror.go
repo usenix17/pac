@@ -161,3 +161,62 @@ func RemoveEntries(path string, names []string) error {
 	}
 	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0o644)
 }
+
+// Orphaned determines which of pkgs (and their AUR deps) can be removed from
+// the allowlist: the members of pkgs' closure that are NOT in the closure of
+// the remaining explicit roots, intersected with what is actually approved.
+// kept lists requested pkgs that are still required by a remaining root (so
+// they are protected, not removed).
+func Orphaned(r run.Runner, resolver []string, allowlistPath string, pkgs []string) (removable, kept []string, err error) {
+	target, err := Closure(r, resolver, pkgs)
+	if err != nil {
+		return nil, nil, err
+	}
+	explicit, err := ExplicitNames(allowlistPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	removing := make(map[string]bool, len(pkgs))
+	for _, p := range pkgs {
+		removing[p] = true
+	}
+	var roots []string
+	for _, e := range explicit {
+		if !removing[e] {
+			roots = append(roots, e)
+		}
+	}
+	var needed []string
+	if len(roots) > 0 {
+		if needed, err = Closure(r, resolver, roots); err != nil {
+			return nil, nil, err
+		}
+	}
+	neededSet := make(map[string]bool, len(needed))
+	for _, n := range needed {
+		neededSet[n] = true
+	}
+	approved, err := ApprovedNames(allowlistPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	approvedSet := make(map[string]bool, len(approved))
+	for _, a := range approved {
+		approvedSet[a] = true
+	}
+	for _, name := range target {
+		if !neededSet[name] && approvedSet[name] {
+			removable = append(removable, name)
+		}
+	}
+	removableSet := make(map[string]bool, len(removable))
+	for _, n := range removable {
+		removableSet[n] = true
+	}
+	for _, p := range pkgs {
+		if !removableSet[p] && neededSet[p] {
+			kept = append(kept, p)
+		}
+	}
+	return removable, kept, nil
+}

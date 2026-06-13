@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -163,5 +164,48 @@ func TestRemoveEntries(t *testing.T) {
 	}
 	if strings.Contains(string(body), "qt5-webkit") {
 		t.Fatalf("qt5-webkit block not fully removed:\n%s", body)
+	}
+}
+
+func TestOrphanedRemovesPackageAndExclusiveDeps(t *testing.T) {
+	// Allowlist: phantomjs (explicit) + qt5-webkit (dep). Removing phantomjs,
+	// no other explicit root exists, so qt5-webkit (and phantomjs) are orphaned.
+	body := "data:\n  allowlist.yaml: |\n    packages:\n      - name: phantomjs\n        approved: true\n        note: explicit\n      - name: qt5-webkit\n        approved: true\n        note: dependency\n"
+	path := writeAllowlist(t, body)
+	f := &run.Fake{Results: []run.Call{
+		{Out: "phantomjs\tphantomjs\nphantomjs\tqt5-webkit\n"}, // closure(phantomjs)
+	}}
+	removable, kept, err := mirror.Orphaned(f, []string{"aur", "depends", "-n"}, path, []string{"phantomjs"})
+	if err != nil {
+		t.Fatalf("Orphaned: %v", err)
+	}
+	if len(kept) != 0 {
+		t.Fatalf("kept = %v, want none", kept)
+	}
+	want := []string{"phantomjs", "qt5-webkit"}
+	sort.Strings(removable)
+	if !reflect.DeepEqual(removable, want) {
+		t.Fatalf("removable = %v, want %v", removable, want)
+	}
+}
+
+func TestOrphanedKeepsSharedDep(t *testing.T) {
+	// Allowlist: phantomjs (explicit) + other (explicit) + qt5-webkit (dep).
+	// Removing qt5-webkit, but phantomjs (a remaining root) still needs it.
+	body := "data:\n  allowlist.yaml: |\n    packages:\n      - name: phantomjs\n        approved: true\n        note: explicit\n      - name: other\n        approved: true\n        note: explicit\n      - name: qt5-webkit\n        approved: true\n        note: dependency\n"
+	path := writeAllowlist(t, body)
+	f := &run.Fake{Results: []run.Call{
+		{Out: "qt5-webkit\tqt5-webkit\n"},               // closure(qt5-webkit)
+		{Out: "phantomjs\tqt5-webkit\nother\tother\n"},  // closure(roots: other, phantomjs)
+	}}
+	removable, kept, err := mirror.Orphaned(f, []string{"aur", "depends", "-n"}, path, []string{"qt5-webkit"})
+	if err != nil {
+		t.Fatalf("Orphaned: %v", err)
+	}
+	if len(removable) != 0 {
+		t.Fatalf("removable = %v, want none (shared dep)", removable)
+	}
+	if !reflect.DeepEqual(kept, []string{"qt5-webkit"}) {
+		t.Fatalf("kept = %v, want [qt5-webkit]", kept)
 	}
 }
