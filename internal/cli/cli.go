@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"starnix.net/pac/internal/cmd"
+	"starnix.net/pac/internal/config"
 	"starnix.net/pac/internal/query"
 	"starnix.net/pac/internal/run"
 )
@@ -18,6 +19,7 @@ const usage = `pac -- one front door for pacman + flatpak
 
 Usage:
   pac update            update everything (alias: -Syu)
+  pac install <name>    install from repos, aur-mirror, or flatpak (alias: -S)
   pac search <term>     search repos + aur-mirror + flatpak (alias: -Ss)
   pac --version         print version
   pac --help            show this help
@@ -31,6 +33,8 @@ func normalize(args []string) []string {
 	switch args[0] {
 	case "-Syu":
 		return append([]string{"update"}, args[1:]...)
+	case "-S":
+		return append([]string{"install"}, args[1:]...)
 	case "-Ss":
 		return append([]string{"search"}, args[1:]...)
 	default:
@@ -39,9 +43,9 @@ func normalize(args []string) []string {
 }
 
 // Run executes pac with the given args and returns a process exit code.
-// Normal output is written to stdout; errors (and usage shown because of an
-// error) go to stderr. r is the subprocess runner.
-func Run(args []string, r run.Runner, stdout, stderr io.Writer) int {
+// Normal output goes to stdout; errors go to stderr; stdin is read only for
+// interactive prompts (install disambiguation). r is the subprocess runner.
+func Run(args []string, r run.Runner, stdin io.Reader, stdout, stderr io.Writer) int {
 	args = normalize(args)
 
 	if len(args) == 0 {
@@ -61,6 +65,12 @@ func Run(args []string, r run.Runner, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "install":
+		if len(args) < 2 {
+			fmt.Fprintln(stderr, "pac: install requires a package name (usage: pac install <name>)")
+			return 2
+		}
+		return cmd.Install(r, config.Load().Prefer, args[1], stdin, stdout, stderr)
 	case "search":
 		term := strings.TrimSpace(strings.Join(args[1:], " "))
 		if term == "" {
