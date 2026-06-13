@@ -10,10 +10,15 @@ import (
 	"starnix.net/pac/internal/run"
 )
 
-// runCLI is a helper that captures stdout and stderr separately.
+// runCLI captures stdout and stderr with an empty stdin.
 func runCLI(args []string, r run.Runner) (code int, stdout, stderr string) {
+	return runCLIStdin(args, r, "")
+}
+
+// runCLIStdin captures stdout and stderr, feeding stdin as the prompt input.
+func runCLIStdin(args []string, r run.Runner, stdin string) (code int, stdout, stderr string) {
 	var o, e bytes.Buffer
-	code = cli.Run(args, r, &o, &e)
+	code = cli.Run(args, r, strings.NewReader(stdin), &o, &e)
 	return code, o.String(), e.String()
 }
 
@@ -95,6 +100,64 @@ func TestUpdateFailureErrorToStderr(t *testing.T) {
 	}
 }
 
+func TestInstallSubcommandDispatches(t *testing.T) {
+	t.Setenv("PAC_PREFER", "system")
+	t.Setenv("PAC_CONFIG", "")
+	f := &run.Fake{Results: []run.Call{{}, {Out: ""}}} // pacman has it; flatpak no match
+	code, _, _ := runCLI([]string{"install", "firefox"}, f)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	last := f.Calls[len(f.Calls)-1]
+	if !reflect.DeepEqual(last, []string{"sudo", "pacman", "-S", "firefox"}) {
+		t.Fatalf("last call = %v, want sudo pacman -S firefox", last)
+	}
+}
+
+func TestSAliasMapsToInstall(t *testing.T) {
+	t.Setenv("PAC_PREFER", "system")
+	t.Setenv("PAC_CONFIG", "")
+	f := &run.Fake{Results: []run.Call{{}, {Out: ""}}}
+	code, _, _ := runCLI([]string{"-S", "firefox"}, f)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if len(f.Calls) == 0 || f.Calls[0][0] != "pacman" || f.Calls[0][1] != "-Si" {
+		t.Fatalf("first call = %v, want pacman -Si probe", f.Calls)
+	}
+}
+
+func TestInstallWithoutNameExits2(t *testing.T) {
+	f := &run.Fake{}
+	code, _, stderr := runCLI([]string{"install"}, f)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if len(f.Calls) != 0 {
+		t.Fatalf("expected no backend calls, got %v", f.Calls)
+	}
+	if !strings.Contains(stderr, "package name") {
+		t.Fatalf("stderr %q missing message", stderr)
+	}
+}
+
+func TestInstallAskReadsStdin(t *testing.T) {
+	t.Setenv("PAC_PREFER", "ask")
+	t.Setenv("PAC_CONFIG", "")
+	f := &run.Fake{Results: []run.Call{
+		{}, // pacman has it
+		{Out: "Discord\tChat\tcom.discordapp.Discord\t1.0\tstable\tflathub\n"},
+	}}
+	code, _, _ := runCLIStdin([]string{"install", "discord"}, f, "f\n")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	last := f.Calls[len(f.Calls)-1]
+	if !reflect.DeepEqual(last, []string{"flatpak", "install", "com.discordapp.Discord"}) {
+		t.Fatalf("last call = %v, want flatpak install (stdin chose flatpak)", last)
+	}
+}
+
 func TestSearchSubcommandPrintsToStdout(t *testing.T) {
 	f := &run.Fake{Results: []run.Call{
 		{Out: "extra/firefox 151.0.4-1 [installed]\n    Fast, Private & Safe Web Browser\n"},
@@ -108,11 +171,8 @@ func TestSearchSubcommandPrintsToStdout(t *testing.T) {
 	if !reflect.DeepEqual(f.Calls, wantCalls) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
 	}
-	if !strings.Contains(stdout, "[extra]") {
-		t.Fatalf("stdout missing [extra]:\n%s", stdout)
-	}
-	if !strings.Contains(stdout, "[flatpak]") {
-		t.Fatalf("stdout missing [flatpak]:\n%s", stdout)
+	if !strings.Contains(stdout, "[extra]") || !strings.Contains(stdout, "[flatpak]") {
+		t.Fatalf("stdout missing source tags:\n%s", stdout)
 	}
 }
 
