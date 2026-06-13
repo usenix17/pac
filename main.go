@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	os.Exit(cli.Run(os.Args[1:], run.Real{}, os.Stdout))
+	os.Exit(cli.Run(os.Args[1:], run.Real{}, os.Stdout, os.Stderr))
 }
