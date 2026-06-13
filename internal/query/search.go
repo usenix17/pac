@@ -34,7 +34,10 @@ func Format(results []Result) string {
 		if r.Installed {
 			installed = " [installed]"
 		}
-		fmt.Fprintf(&b, "[%s] %s %s%s\n    %s\n", r.Source, r.Name, r.Version, installed, r.Desc)
+		fmt.Fprintf(&b, "[%s] %s %s%s\n", r.Source, r.Name, r.Version, installed)
+		if r.Desc != "" {
+			fmt.Fprintf(&b, "    %s\n", r.Desc)
+		}
 	}
 	return b.String()
 }

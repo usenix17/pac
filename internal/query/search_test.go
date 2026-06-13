@@ -66,3 +66,13 @@ func TestSearchIgnoresBackendErrors(t *testing.T) {
 		t.Fatalf("Search =\n%#v\nwant\n%#v", got, want)
 	}
 }
+
+func TestFormatOmitsBlankDescription(t *testing.T) {
+	out := query.Format([]query.Result{{Source: "core", Name: "bash", Version: "5.2-1"}})
+	if strings.Contains(out, "    \n") {
+		t.Fatalf("Format emitted a blank indented description line:\n%q", out)
+	}
+	if !strings.Contains(out, "[core] bash 5.2-1") {
+		t.Fatalf("Format missing the package line:\n%q", out)
+	}
+}
