@@ -228,6 +228,43 @@ func TestSearchEmptyTermErrorToStderr(t *testing.T) {
 	}
 }
 
+func TestRemoveSubcommandDispatches(t *testing.T) {
+	f := &run.Fake{Results: []run.Call{{}}} // pacman -Qi: installed
+	code, _, _ := runCLI([]string{"remove", "firefox"}, f)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	want := [][]string{{"pacman", "-Qi", "firefox"}, {"sudo", "pacman", "-R", "firefox"}}
+	if !reflect.DeepEqual(f.Calls, want) {
+		t.Fatalf("Calls = %v, want %v", f.Calls, want)
+	}
+}
+
+func TestRAliasMapsToRemove(t *testing.T) {
+	f := &run.Fake{Results: []run.Call{{}}}
+	code, _, _ := runCLI([]string{"-R", "firefox"}, f)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if len(f.Calls) == 0 || f.Calls[0][0] != "pacman" || f.Calls[0][1] != "-Qi" {
+		t.Fatalf("first call = %v, want pacman -Qi probe", f.Calls)
+	}
+}
+
+func TestRemoveWithoutNameExits2(t *testing.T) {
+	f := &run.Fake{}
+	code, _, stderr := runCLI([]string{"remove"}, f)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if len(f.Calls) != 0 {
+		t.Fatalf("expected no backend calls, got %v", f.Calls)
+	}
+	if !strings.Contains(stderr, "package name") {
+		t.Fatalf("stderr %q missing message", stderr)
+	}
+}
+
 var errBoom = boomError("boom")
 
 type boomError string
