@@ -156,12 +156,15 @@ func TestSearchWithoutTermErrorToStderr(t *testing.T) {
 
 func TestSearchEmptyTermErrorToStderr(t *testing.T) {
 	f := &run.Fake{}
-	code, _, _ := runCLI([]string{"search", "   "}, f)
+	code, _, stderr := runCLI([]string{"search", "   "}, f)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
 	if len(f.Calls) != 0 {
 		t.Fatalf("expected no backend calls for blank term, got %v", f.Calls)
+	}
+	if !strings.Contains(stderr, "term") {
+		t.Fatalf("stderr %q missing term-required message", stderr)
 	}
 }
 

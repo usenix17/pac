@@ -35,7 +35,9 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadFromFileWithTilde(t *testing.T) {
 	isolate(t, "/home/y")
 	cfg := filepath.Join(t.TempDir(), "config")
-	os.WriteFile(cfg, []byte("# comment\nprefer = flatpak\nallowlist = ~/my.yaml\n"), 0o644)
+	if err := os.WriteFile(cfg, []byte("# comment\nprefer = flatpak\nallowlist = ~/my.yaml\n"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	t.Setenv("PAC_CONFIG", cfg)
 
 	c := config.Load()
@@ -50,7 +52,9 @@ func TestLoadFromFileWithTilde(t *testing.T) {
 func TestEnvOverridesFile(t *testing.T) {
 	isolate(t, "/home/z")
 	cfg := filepath.Join(t.TempDir(), "config")
-	os.WriteFile(cfg, []byte("prefer = flatpak\n"), 0o644)
+	if err := os.WriteFile(cfg, []byte("prefer = flatpak\n"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	t.Setenv("PAC_CONFIG", cfg)
 	t.Setenv("PAC_PREFER", "ask")
 

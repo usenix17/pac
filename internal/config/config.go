@@ -46,6 +46,9 @@ func parseFile(path string) map[string]string {
 		}
 		m[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
+	// Best-effort: a scan error (e.g. an overlong or truncated line) leaves the
+	// keys parsed so far; missing keys fall back to defaults in resolve.
+	_ = sc.Err()
 	return m
 }
 
