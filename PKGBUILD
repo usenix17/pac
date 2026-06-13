@@ -1,4 +1,4 @@
-# Maintainer: Sasha <sasha.karcz@gmail.com>
+# Maintainer: Sasha <sasha@starnix.net>
 pkgname=pac
 pkgver=0.1.0
 pkgrel=1
