@@ -34,7 +34,7 @@ func Remove(r run.Runner, name string, stderr io.Writer) int {
 		}
 		return 0
 	case flatpakInstalled(r, name):
-		if err := r.Run("flatpak", "uninstall", name); err != nil {
+		if err := r.RunBar("flatpak", "uninstall", "--noninteractive", name); err != nil {
 			fmt.Fprintf(stderr, "pac: remove failed: %v\n", err)
 			return 1
 		}

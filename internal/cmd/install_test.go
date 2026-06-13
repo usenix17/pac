@@ -37,7 +37,7 @@ func TestInstallFlatpakOnlyByAppID(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code = %d, want 0", code)
 	}
-	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "com.discordapp.Discord"}) {
+	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "--noninteractive", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install com.discordapp.Discord", got)
 	}
 }
@@ -49,7 +49,7 @@ func TestInstallFlatpakMatchesHumanName(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code = %d, want 0", code)
 	}
-	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "com.discordapp.Discord"}) {
+	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "--noninteractive", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install com.discordapp.Discord", got)
 	}
 }
@@ -71,7 +71,7 @@ func TestInstallBothPreferFlatpak(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code = %d, want 0", code)
 	}
-	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "com.discordapp.Discord"}) {
+	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "--noninteractive", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install com.discordapp.Discord", got)
 	}
 }
@@ -83,7 +83,7 @@ func TestInstallBothAskChoosesFlatpak(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code = %d, want 0", code)
 	}
-	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "com.discordapp.Discord"}) {
+	if got := lastCall(f); !reflect.DeepEqual(got, []string{"flatpak", "install", "--noninteractive", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install", got)
 	}
 	if !strings.Contains(out.String(), "[s/f]") {

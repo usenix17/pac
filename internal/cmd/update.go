@@ -10,5 +10,5 @@ func Update(r run.Runner) error {
 	if err := r.Run("sudo", "pacman", "-Syu"); err != nil {
 		return err
 	}
-	return r.Run("flatpak", "update")
+	return r.RunBar("flatpak", "update", "--noninteractive")
 }
