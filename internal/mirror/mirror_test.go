@@ -121,7 +121,10 @@ func TestAppendEntries(t *testing.T) {
 		t.Fatalf("names after append = %v, want %v", names, want)
 	}
 
-	body, _ := os.ReadFile(path)
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
 	s := string(body)
 	if !strings.Contains(s, "      - name: phantomjs\n        approved: true\n        note: explicit\n") {
 		t.Fatalf("phantomjs not appended as explicit:\n%s", s)
