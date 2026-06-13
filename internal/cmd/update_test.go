@@ -16,7 +16,7 @@ func TestUpdateRunsPacmanThenFlatpak(t *testing.T) {
 	}
 	want := [][]string{
 		{"sudo", "pacman", "-Syu"},
-		{"flatpak", "update"},
+		{"flatpak", "update", "--noninteractive"},
 	}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)

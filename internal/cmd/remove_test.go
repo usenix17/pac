@@ -42,7 +42,7 @@ func TestRemoveFlatpakInstalled(t *testing.T) {
 	want := [][]string{
 		{"pacman", "-Qi", "com.discordapp.Discord"},
 		{"flatpak", "info", "com.discordapp.Discord"},
-		{"flatpak", "uninstall", "com.discordapp.Discord"},
+		{"flatpak", "uninstall", "--noninteractive", "com.discordapp.Discord"},
 	}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)

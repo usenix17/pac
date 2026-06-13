@@ -71,7 +71,7 @@ func installPacman(r run.Runner, name string, stderr io.Writer) int {
 }
 
 func installFlatpak(r run.Runner, appID string, stderr io.Writer) int {
-	if err := r.Run("flatpak", "install", appID); err != nil {
+	if err := r.RunBar("flatpak", "install", "--noninteractive", appID); err != nil {
 		fmt.Fprintf(stderr, "pac: install failed: %v\n", err)
 		return 1
 	}
