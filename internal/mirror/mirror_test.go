@@ -133,3 +133,35 @@ func TestAppendEntries(t *testing.T) {
 		t.Fatalf("qt5-doc not appended as dependency:\n%s", s)
 	}
 }
+
+func TestExplicitNames(t *testing.T) {
+	got, err := mirror.ExplicitNames(writeAllowlist(t, sampleAllowlist))
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	// only discord is note: explicit; qt5-webkit is note: dependency
+	if !reflect.DeepEqual(got, []string{"discord"}) {
+		t.Fatalf("ExplicitNames = %v, want [discord]", got)
+	}
+}
+
+func TestRemoveEntries(t *testing.T) {
+	path := writeAllowlist(t, sampleAllowlist)
+	if err := mirror.RemoveEntries(path, []string{"qt5-webkit"}); err != nil {
+		t.Fatalf("RemoveEntries: %v", err)
+	}
+	names, err := mirror.ApprovedNames(path)
+	if err != nil {
+		t.Fatalf("ApprovedNames: %v", err)
+	}
+	if !reflect.DeepEqual(names, []string{"discord"}) {
+		t.Fatalf("names after remove = %v, want [discord]", names)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if strings.Contains(string(body), "qt5-webkit") {
+		t.Fatalf("qt5-webkit block not fully removed:\n%s", body)
+	}
+}

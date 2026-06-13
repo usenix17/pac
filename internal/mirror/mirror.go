@@ -105,3 +105,59 @@ func AppendEntries(path string, names []string, requested map[string]bool) error
 	}
 	return nil
 }
+
+// ExplicitNames returns the allowlist package names marked "note: explicit",
+// sorted. These are the "roots" (directly-wanted packages).
+func ExplicitNames(path string) ([]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var names []string
+	var current string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		switch {
+		case strings.HasPrefix(line, "- name:"):
+			current = strings.TrimSpace(strings.TrimPrefix(line, "- name:"))
+		case line == "note: explicit" && current != "":
+			names = append(names, current)
+			current = ""
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// RemoveEntries rewrites the allowlist without the 3-line blocks (the
+// "- name: X" line plus the following two: approved, note) for the given names.
+func RemoveEntries(path string, names []string) error {
+	remove := make(map[string]bool, len(names))
+	for _, n := range names {
+		remove[n] = true
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "- name:") {
+			name := strings.TrimSpace(strings.TrimPrefix(trimmed, "- name:"))
+			if remove[name] {
+				i += 2 // also skip the approved and note lines (3-line block)
+				continue
+			}
+		}
+		out = append(out, lines[i])
+	}
+	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0o644)
+}
