@@ -22,6 +22,7 @@ Usage:
   pac install <name>    install from repos, aur-mirror, or flatpak (alias: -S)
   pac remove <name>     remove an installed package (alias: -R)
   pac search <term>     search repos + aur-mirror + flatpak (alias: -Ss)
+  pac mirror <sub>      manage the aur-mirror allowlist (add|remove|show|list)
   pac --version         print version
   pac --help            show this help
 `
@@ -80,6 +81,8 @@ func Run(args []string, r run.Runner, stdin io.Reader, stdout, stderr io.Writer)
 			return 2
 		}
 		return cmd.Remove(r, args[1], stderr)
+	case "mirror":
+		return cmd.Mirror(r, config.Load(), args[1:], stdout, stderr)
 	case "search":
 		term := strings.TrimSpace(strings.Join(args[1:], " "))
 		if term == "" {
