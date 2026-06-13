@@ -6,16 +6,18 @@ import (
 	"io"
 
 	"starnix.net/pac/internal/cmd"
+	"starnix.net/pac/internal/query"
 	"starnix.net/pac/internal/run"
 )
 
 // Version is the pac version string.
 const Version = "0.1.0"
 
-const usage = `pac — one front door for pacman + flatpak
+const usage = `pac -- one front door for pacman + flatpak
 
 Usage:
   pac update            update everything (alias: -Syu)
+  pac search <term>     search repos + aur-mirror + flatpak (alias: -Ss)
   pac --version         print version
   pac --help            show this help
 `
@@ -28,6 +30,8 @@ func normalize(args []string) []string {
 	switch args[0] {
 	case "-Syu":
 		return append([]string{"update"}, args[1:]...)
+	case "-Ss":
+		return append([]string{"search"}, args[1:]...)
 	default:
 		return args
 	}
@@ -54,6 +58,13 @@ func Run(args []string, r run.Runner, out io.Writer) int {
 			fmt.Fprintf(out, "pac: update failed: %v\n", err)
 			return 1
 		}
+		return 0
+	case "search":
+		if len(args) < 2 {
+			fmt.Fprintln(out, "usage: pac search <term>")
+			return 2
+		}
+		fmt.Fprint(out, query.Format(query.Search(r, args[1])))
 		return 0
 	default:
 		fmt.Fprintf(out, "pac: unknown command %q (try `pac --help`)\n", args[0])

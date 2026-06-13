@@ -79,3 +79,46 @@ var errBoom = boomError("boom")
 type boomError string
 
 func (e boomError) Error() string { return string(e) }
+
+func TestSearchSubcommandQueriesAndPrints(t *testing.T) {
+	f := &run.Fake{Results: []run.Call{
+		{Out: "extra/firefox 151.0.4-1 [installed]\n    Fast, Private & Safe Web Browser\n"},
+		{Out: "Firefox\tWeb browser\torg.mozilla.firefox\t151.0.4\tstable\tflathub\n"},
+	}}
+	var out bytes.Buffer
+	code := cli.Run([]string{"search", "firefox"}, f, &out)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	wantCalls := [][]string{{"pacman", "-Ss", "firefox"}, {"flatpak", "search", "firefox"}}
+	if !reflect.DeepEqual(f.Calls, wantCalls) {
+		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
+	}
+	if !strings.Contains(out.String(), "[extra]") || !strings.Contains(out.String(), "[flatpak]") {
+		t.Fatalf("output missing source tags:\n%s", out.String())
+	}
+}
+
+func TestSsAliasMapsToSearch(t *testing.T) {
+	f := &run.Fake{Results: []run.Call{{Out: ""}, {Out: ""}}}
+	var out bytes.Buffer
+	code := cli.Run([]string{"-Ss", "firefox"}, f, &out)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	wantCalls := [][]string{{"pacman", "-Ss", "firefox"}, {"flatpak", "search", "firefox"}}
+	if !reflect.DeepEqual(f.Calls, wantCalls) {
+		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
+	}
+}
+
+func TestSearchWithoutTermExits2(t *testing.T) {
+	f := &run.Fake{}
+	var out bytes.Buffer
+	if code := cli.Run([]string{"search"}, f, &out); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if len(f.Calls) != 0 {
+		t.Fatalf("expected no backend calls, got %v", f.Calls)
+	}
+}
