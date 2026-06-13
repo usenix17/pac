@@ -2,6 +2,8 @@ package cli_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -270,3 +272,30 @@ var errBoom = boomError("boom")
 type boomError string
 
 func (e boomError) Error() string { return string(e) }
+
+func TestMirrorListDispatches(t *testing.T) {
+	t.Setenv("PAC_CONFIG", "")
+	dir := t.TempDir()
+	t.Setenv("PAC_ALLOWLIST", filepath.Join(dir, "allowlist.yaml"))
+	if err := os.WriteFile(filepath.Join(dir, "allowlist.yaml"),
+		[]byte("data:\n  allowlist.yaml: |\n    packages:\n      - name: discord\n        approved: true\n        note: explicit\n"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	code, stdout, _ := runCLI([]string{"mirror", "list"}, &run.Fake{})
+	if code != 0 {
+		t.Fatalf("code = %d, want 0", code)
+	}
+	if !strings.Contains(stdout, "discord") {
+		t.Fatalf("stdout missing discord: %q", stdout)
+	}
+}
+
+func TestMirrorNoSubExits2(t *testing.T) {
+	code, _, stderr := runCLI([]string{"mirror"}, &run.Fake{})
+	if code != 2 {
+		t.Fatalf("code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "subcommand") {
+		t.Fatalf("stderr missing 'subcommand': %q", stderr)
+	}
+}
