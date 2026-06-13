@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"starnix.net/pac/internal/mirror"
@@ -100,5 +101,32 @@ func TestMissing(t *testing.T) {
 func TestClosureEmptyResolverErrors(t *testing.T) {
 	if _, err := mirror.Closure(&run.Fake{}, nil, []string{"foo"}); err == nil {
 		t.Fatal("expected error for empty resolver")
+	}
+}
+
+func TestAppendEntries(t *testing.T) {
+	path := writeAllowlist(t, sampleAllowlist)
+	requested := map[string]bool{"phantomjs": true} // phantomjs explicit, qt5-doc a dep
+	if err := mirror.AppendEntries(path, []string{"phantomjs", "qt5-doc"}, requested); err != nil {
+		t.Fatalf("AppendEntries: %v", err)
+	}
+
+	// The new names are now approved, and the file still parses to the union.
+	names, err := mirror.ApprovedNames(path)
+	if err != nil {
+		t.Fatalf("ApprovedNames: %v", err)
+	}
+	want := []string{"discord", "phantomjs", "qt5-doc", "qt5-webkit"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("names after append = %v, want %v", names, want)
+	}
+
+	body, _ := os.ReadFile(path)
+	s := string(body)
+	if !strings.Contains(s, "      - name: phantomjs\n        approved: true\n        note: explicit\n") {
+		t.Fatalf("phantomjs not appended as explicit:\n%s", s)
+	}
+	if !strings.Contains(s, "      - name: qt5-doc\n        approved: true\n        note: dependency\n") {
+		t.Fatalf("qt5-doc not appended as dependency:\n%s", s)
 	}
 }

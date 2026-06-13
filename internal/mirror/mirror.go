@@ -7,6 +7,7 @@ package mirror
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -81,4 +82,26 @@ func Missing(closure, approved []string) []string {
 		}
 	}
 	return missing
+}
+
+// AppendEntries appends allowlist entries (6-space indented, matching the
+// generated format) for each name. requested marks which names are explicitly
+// requested (note: explicit) versus pulled-in dependencies (note: dependency).
+// Entries are appended at end of file; the caller reviews the git diff.
+func AppendEntries(path string, names []string, requested map[string]bool) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	for _, name := range names {
+		note := "dependency"
+		if requested[name] {
+			note = "explicit"
+		}
+		if _, err := fmt.Fprintf(f, "      - name: %s\n        approved: true\n        note: %s\n", name, note); err != nil {
+			return err
+		}
+	}
+	return nil
 }
