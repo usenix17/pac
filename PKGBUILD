@@ -1,7 +1,7 @@
 # Maintainer: Sasha <sasha@starnix.net>
 pkgname=pac
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc='One front door for pacman (official + aur-mirror) and flatpak'
 arch=('x86_64')
 url='https://github.com/usenix17/pac'
