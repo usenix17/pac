@@ -4,13 +4,11 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc='One front door for pacman (official + aur-mirror) and flatpak'
 arch=('x86_64')
-url='https://git.starnix.net/starnix/pac'
+url='https://github.com/usenix17/pac'
 license=('MIT')
 depends=('pacman' 'flatpak')
 makedepends=('go' 'git')
-# Built from the Starnix git repo. Until that remote exists, this points at the
-# local checkout so the aur-mirror builder (and a manual bootstrap) can build it.
-source=("git+file:///home/sasha/pac#branch=master")
+source=("git+https://github.com/usenix17/pac.git")
 sha256sums=('SKIP')
 
 build() {
