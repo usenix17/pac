@@ -28,16 +28,29 @@ func TestParsePercent(t *testing.T) {
 	}
 }
 
-func TestBarStructure(t *testing.T) {
-	b := progress.Bar(50, 10)
-	if !strings.HasPrefix(b, "[") {
-		t.Fatalf("Bar = %q, want leading [", b)
+func TestBarFormat(t *testing.T) {
+	// 40% of width 11 -> 4 eaten cells, open mouth, spaced pellets ahead.
+	if got, want := progress.Bar(40, 11), "[----C o o o] 40%"; got != want {
+		t.Fatalf("Bar(40,11) = %q, want %q", got, want)
 	}
-	if !strings.Contains(b, "C") {
-		t.Fatalf("Bar = %q, want a C pac-man", b)
+}
+
+func TestBarChomp(t *testing.T) {
+	// As the head advances a cell the mouth alternates open/closed: C, c, C...
+	// width 20 -> one eaten cell per 5%.
+	cases := []struct {
+		percent int
+		head    byte
+	}{
+		{20, 'C'}, // 4 eaten (even) -> open
+		{25, 'c'}, // 5 eaten (odd)  -> closed
+		{30, 'C'}, // 6 eaten (even) -> open
 	}
-	if !strings.HasSuffix(b, "50%") {
-		t.Fatalf("Bar = %q, want trailing 50%%", b)
+	for _, c := range cases {
+		b := progress.Bar(c.percent, 20)
+		if !strings.ContainsRune(b, rune(c.head)) {
+			t.Errorf("Bar(%d,20) = %q, want head %q", c.percent, b, c.head)
+		}
 	}
 }
 

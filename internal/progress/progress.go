@@ -26,9 +26,11 @@ func Parse(line string) (int, bool) {
 	return 0, false
 }
 
-// Bar renders a candy bar with an inner track of the given width for percent
-// (clamped to 0-100): eaten cells '#', a 'C' Pac-Man at the frontier, uneaten
-// 'o' dots, then the percentage, e.g. "[###C oooo] 41%".
+// Bar renders an ILoveCandy-style Pac-Man bar with an inner track of the given
+// width for percent (clamped to 0-100): a '-' trail Pac-Man has eaten, a
+// chomping head at the frontier ('C' open mouth on even cells, 'c' closed on
+// odd, so successive frames read C, c, C, c...), then 'o' pellets on a spaced
+// lattice ahead, and the percentage, e.g. "[----C o o o] 40%".
 func Bar(percent, width int) string {
 	if percent < 0 {
 		percent = 0
@@ -39,17 +41,23 @@ func Bar(percent, width int) string {
 	if width < 3 {
 		width = 3
 	}
-	filled := percent * width / 100
+	eaten := percent * width / 100
+	head := byte('C') // open mouth
+	if eaten%2 == 1 {
+		head = 'c' // closed mouth -- the chomp
+	}
 	var b strings.Builder
 	b.WriteByte('[')
 	for i := 0; i < width; i++ {
 		switch {
-		case i < filled-1:
-			b.WriteByte('#')
-		case i == filled-1:
-			b.WriteByte('C')
+		case i < eaten:
+			b.WriteByte('-') // trail Pac-Man has already eaten
+		case i == eaten:
+			b.WriteByte(head) // Pac-Man at the frontier
+		case (i-eaten)%2 == 0:
+			b.WriteByte('o') // pellet on the spaced lattice ahead
 		default:
-			b.WriteByte('o')
+			b.WriteByte(' ') // gap between pellets
 		}
 	}
 	b.WriteByte(']')
