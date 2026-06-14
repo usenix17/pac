@@ -34,7 +34,10 @@ func Remove(r run.Runner, name string, stderr io.Writer) int {
 		}
 		return 0
 	case flatpakInstalled(r, name):
-		if err := r.RunBar("flatpak", "uninstall", "--noninteractive", name); err != nil {
+		// -y, not --noninteractive: keep the progress stream RunBar renders
+		// (see installFlatpak). Uninstall rarely emits a percentage, but the
+		// flag stays consistent and still auto-confirms.
+		if err := r.RunBar("flatpak", "uninstall", "-y", name); err != nil {
 			fmt.Fprintf(stderr, "pac: remove failed: %v\n", err)
 			return 1
 		}

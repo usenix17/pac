@@ -71,7 +71,10 @@ func installPacman(r run.Runner, name string, stderr io.Writer) int {
 }
 
 func installFlatpak(r run.Runner, appID string, stderr io.Writer) int {
-	if err := r.RunBar("flatpak", "install", "--noninteractive", appID); err != nil {
+	// Use -y (assume yes), NOT --noninteractive: --noninteractive suppresses
+	// flatpak's percentage progress, leaving RunBar's bar with nothing to
+	// parse. -y auto-confirms but keeps the progress stream we render.
+	if err := r.RunBar("flatpak", "install", "-y", appID); err != nil {
 		fmt.Fprintf(stderr, "pac: install failed: %v\n", err)
 		return 1
 	}

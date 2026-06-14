@@ -10,5 +10,8 @@ func Update(r run.Runner) error {
 	if err := r.Run("sudo", "pacman", "-Syu"); err != nil {
 		return err
 	}
-	return r.RunBar("flatpak", "update", "--noninteractive")
+	// -y, not --noninteractive: the latter suppresses flatpak's percentage
+	// progress, so RunBar's bar would have nothing to render (see
+	// installFlatpak). -y auto-confirms while keeping the progress stream.
+	return r.RunBar("flatpak", "update", "-y")
 }

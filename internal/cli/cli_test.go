@@ -30,7 +30,7 @@ func TestUpdateSubcommandDispatches(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	want := [][]string{{"sudo", "pacman", "-Syu"}, {"flatpak", "update", "--noninteractive"}}
+	want := [][]string{{"sudo", "pacman", "-Syu"}, {"flatpak", "update", "-y"}}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)
 	}
@@ -42,7 +42,7 @@ func TestSyuAliasMapsToUpdate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	want := [][]string{{"sudo", "pacman", "-Syu"}, {"flatpak", "update", "--noninteractive"}}
+	want := [][]string{{"sudo", "pacman", "-Syu"}, {"flatpak", "update", "-y"}}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)
 	}
@@ -155,7 +155,7 @@ func TestInstallAskReadsStdin(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	last := f.Calls[len(f.Calls)-1]
-	if !reflect.DeepEqual(last, []string{"flatpak", "install", "--noninteractive", "com.discordapp.Discord"}) {
+	if !reflect.DeepEqual(last, []string{"flatpak", "install", "-y", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install (stdin chose flatpak)", last)
 	}
 }
