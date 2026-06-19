@@ -13,5 +13,7 @@ func Update(r run.Runner) error {
 	// -y, not --noninteractive: the latter suppresses flatpak's percentage
 	// progress, so RunBar's bar would have nothing to render (see
 	// installFlatpak). -y auto-confirms while keeping the progress stream.
-	return r.RunBar("flatpak", "update", "-y")
+	// Empty label: an update touches many apps, so Render shows each item's
+	// own ref parsed from the stream (falling back to an N/M counter).
+	return r.RunBar("", "flatpak", "update", "-y")
 }

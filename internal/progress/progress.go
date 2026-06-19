@@ -13,6 +13,15 @@ import (
 
 var pctRe = regexp.MustCompile(`(\d{1,3})%`)
 
+// itemRe matches flatpak's per-operation progress header, e.g.
+// "Installing 1/2…" / "Updating 3/5…", capturing the item index and count.
+var itemRe = regexp.MustCompile(`(?:Installing|Updating|Uninstalling|Downloading) (\d+)/(\d+)`)
+
+// tableRe matches flatpak's numbered ref table that precedes the transfer, e.g.
+// " 1.   <TAB> org.gnome.Calculator.Locale <TAB> stable ...", mapping the item
+// index to its ref so we can label that item's bar.
+var tableRe = regexp.MustCompile(`^\s*(\d+)\.\s+(\S+)`)
+
 // Parse returns the last in-range (0-100) percentage found in line, or
 // (0,false) if none.
 func Parse(line string) (int, bool) {
@@ -64,19 +73,73 @@ func Bar(percent, width int) string {
 	return fmt.Sprintf("%s %d%%", b.String(), percent)
 }
 
-// Render reads progress lines from r and draws a candy bar to w, redrawing in
-// place (carriage return) only when the parsed percentage changes. A final
-// newline is written once any bar was drawn.
-func Render(r io.Reader, w io.Writer, width int) {
+// labeled formats one bar line as "<name>  <bar>", padding the name into a
+// fixed column so successive items' bars line up (pacman-style). An empty name
+// renders the bare bar.
+func labeled(name string, pct, width int) string {
+	if name == "" {
+		return Bar(pct, width)
+	}
+	return fmt.Sprintf("%-28s %s", clip(name, 28), Bar(pct, width))
+}
+
+// clip truncates s to at most n bytes, marking truncation with a trailing "..".
+func clip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 2 {
+		return s[:n]
+	}
+	return s[:n-2] + ".."
+}
+
+// Render reads flatpak's progress output from r and draws a labeled candy bar
+// to w, one line per item: "<ref>  [----C o o o] NN%". It redraws the current
+// line in place (carriage return) only when the percentage changes, and starts
+// a fresh line when flatpak moves to the next item. label is the caller's known
+// target (e.g. the app id for a single install); it is used until the stream
+// reveals a per-item ref, and as the fallback when none is found.
+func Render(r io.Reader, w io.Writer, width int, label string) {
 	sc := bufio.NewScanner(r)
-	last := -1
+	refs := map[int]string{} // item index -> ref, learned from the table
+	cur := label             // label for the item currently drawing
+	idx := 0                 // current item index (0 = none yet)
+	last := -1               // last percent drawn for this item
+	drawn := false           // has the current item's line had any output
 	for sc.Scan() {
-		if pct, ok := Parse(sc.Text()); ok && pct != last {
-			fmt.Fprintf(w, "\r%s", Bar(pct, width))
+		line := sc.Text()
+		if m := tableRe.FindStringSubmatch(line); m != nil {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				refs[n] = m[2]
+			}
+			continue
+		}
+		if m := itemRe.FindStringSubmatch(line); m != nil {
+			if n, err := strconv.Atoi(m[1]); err == nil && n != idx {
+				if drawn {
+					fmt.Fprint(w, "\n") // finalize the previous item's line
+				}
+				idx = n
+				switch {
+				case refs[n] != "":
+					cur = refs[n]
+				case label != "":
+					cur = label
+				default:
+					cur = m[1] + "/" + m[2]
+				}
+				last = -1
+				drawn = false
+			}
+		}
+		if pct, ok := Parse(line); ok && pct != last {
+			fmt.Fprintf(w, "\r%s", labeled(cur, pct, width))
 			last = pct
+			drawn = true
 		}
 	}
-	if last >= 0 {
+	if drawn {
 		fmt.Fprint(w, "\n")
 	}
 }

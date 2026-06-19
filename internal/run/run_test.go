@@ -47,10 +47,11 @@ func TestRealCaptureRunsCommand(t *testing.T) {
 
 func TestFakeRunBarRecordsCall(t *testing.T) {
 	f := &run.Fake{}
-	if err := f.RunBar("flatpak", "install", "--noninteractive", "com.x.Y"); err != nil {
+	// First arg is the display label; it is not part of the recorded command.
+	if err := f.RunBar("com.x.Y", "flatpak", "install", "-y", "com.x.Y"); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	want := [][]string{{"flatpak", "install", "--noninteractive", "com.x.Y"}}
+	want := [][]string{{"flatpak", "install", "-y", "com.x.Y"}}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)
 	}

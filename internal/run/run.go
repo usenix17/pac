@@ -16,8 +16,10 @@ type Runner interface {
 	// Capture executes name with args and returns its stdout.
 	Capture(name string, args ...string) (string, error)
 	// RunBar runs name with args, capturing its stdout to render a progress
-	// bar; stderr and stdin pass through to the terminal.
-	RunBar(name string, args ...string) error
+	// bar; stderr and stdin pass through to the terminal. label names the
+	// target being acted on (e.g. the flatpak app id) and is shown beside the
+	// bar; pass "" when the stream supplies its own per-item names.
+	RunBar(label, name string, args ...string) error
 }
 
 // Real is the production Runner backed by os/exec.
@@ -29,7 +31,7 @@ func (Real) Run(name string, args ...string) error {
 	return c.Run()
 }
 
-func (Real) RunBar(name string, args ...string) error {
+func (Real) RunBar(label, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
@@ -40,7 +42,7 @@ func (Real) RunBar(name string, args ...string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	progress.Render(pipe, os.Stderr, 24) // blocks until the command closes stdout
+	progress.Render(pipe, os.Stderr, 24, label) // blocks until the command closes stdout
 	return cmd.Wait()
 }
 
@@ -76,7 +78,9 @@ func (f *Fake) Run(name string, args ...string) error {
 	return f.record(name, args).Err
 }
 
-func (f *Fake) RunBar(name string, args ...string) error {
+func (f *Fake) RunBar(label, name string, args ...string) error {
+	// Record only the command (name+args); the label is display-only and not
+	// part of what gets executed, so call assertions stay focused on the cmd.
 	return f.record(name, args).Err
 }
 
