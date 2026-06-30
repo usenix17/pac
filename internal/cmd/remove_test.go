@@ -21,8 +21,8 @@ func TestRemovePacmanInstalled(t *testing.T) {
 		t.Fatalf("code = %d, want 0", code)
 	}
 	want := [][]string{
-		{"pacman", "-Qi", "firefox"},
-		{"sudo", "pacman", "-R", "firefox"},
+		{"pacman", "-Qi", "--", "firefox"},
+		{"sudo", "pacman", "-R", "--", "firefox"},
 	}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)
@@ -32,17 +32,17 @@ func TestRemovePacmanInstalled(t *testing.T) {
 func TestRemoveFlatpakInstalled(t *testing.T) {
 	f := &run.Fake{Results: []run.Call{
 		{Err: errors.New("not installed via pacman")}, // pacman -Qi fails
-		{},                                            // flatpak info: installed
-		{},                                            // flatpak uninstall: succeeds
+		{}, // flatpak info: installed
+		{}, // flatpak uninstall: succeeds
 	}}
 	code := cmd.Remove(f, "com.discordapp.Discord", &bytes.Buffer{})
 	if code != 0 {
 		t.Fatalf("code = %d, want 0", code)
 	}
 	want := [][]string{
-		{"pacman", "-Qi", "com.discordapp.Discord"},
-		{"flatpak", "info", "com.discordapp.Discord"},
-		{"flatpak", "uninstall", "-y", "com.discordapp.Discord"},
+		{"pacman", "-Qi", "--", "com.discordapp.Discord"},
+		{"flatpak", "info", "--", "com.discordapp.Discord"},
+		{"flatpak", "uninstall", "-y", "--", "com.discordapp.Discord"},
 	}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)

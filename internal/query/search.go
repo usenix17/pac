@@ -18,8 +18,11 @@ import (
 // backend failures as warnings is deferred to when the CLI gains a stderr
 // writer (Phase 2 slice 2).
 func Search(r run.Runner, term string) []Result {
-	pac, _ := r.Capture("pacman", "-Ss", term)
-	flat, _ := r.Capture("flatpak", "search", term)
+	// "--" ends option parsing so a term beginning with '-' is searched for
+	// literally rather than mistaken for a flag. The term is a free-text query
+	// (pacman -Ss takes a regex), so it is not charset-restricted here.
+	pac, _ := r.Capture("pacman", "-Ss", "--", term)
+	flat, _ := r.Capture("flatpak", "search", "--", term)
 	return append(ParsePacman(pac), ParseFlatpak(flat)...)
 }
 

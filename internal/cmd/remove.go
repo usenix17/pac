@@ -5,17 +5,19 @@ import (
 	"io"
 
 	"starnix.net/pac/internal/run"
+	"starnix.net/pac/internal/validate"
 )
 
-// pacmanInstalled reports whether name is installed as a pacman package.
+// pacmanInstalled reports whether name is installed as a pacman package. The
+// "--" guards against a name that begins with '-' being read as a flag.
 func pacmanInstalled(r run.Runner, name string) bool {
-	_, err := r.Capture("pacman", "-Qi", name)
+	_, err := r.Capture("pacman", "-Qi", "--", name)
 	return err == nil
 }
 
 // flatpakInstalled reports whether name is an installed flatpak.
 func flatpakInstalled(r run.Runner, name string) bool {
-	_, err := r.Capture("flatpak", "info", name)
+	_, err := r.Capture("flatpak", "info", "--", name)
 	return err == nil
 }
 
@@ -23,12 +25,16 @@ func flatpakInstalled(r run.Runner, name string) bool {
 // checked first and wins if (rarely) both report it. Returns a process exit
 // code.
 func Remove(r run.Runner, name string, stderr io.Writer) int {
+	if err := validate.Target(name); err != nil {
+		fmt.Fprintf(stderr, "pac: %v\n", err)
+		return 2
+	}
 	switch {
 	case pacmanInstalled(r, name):
 		// -R removes just the named package, not its now-unneeded dependencies
 		// (-Rs). This is deliberate: pac should not surprise-remove a chain of
 		// dependencies; the user can run pacman -Rs manually for that.
-		if err := r.Run("sudo", "pacman", "-R", name); err != nil {
+		if err := r.Run("sudo", "pacman", "-R", "--", name); err != nil {
 			fmt.Fprintf(stderr, "pac: remove failed: %v\n", err)
 			return 1
 		}
@@ -37,7 +43,7 @@ func Remove(r run.Runner, name string, stderr io.Writer) int {
 		// -y, not --noninteractive: keep the progress stream RunBar renders
 		// (see installFlatpak). Uninstall rarely emits a percentage, but the
 		// flag stays consistent and still auto-confirms.
-		if err := r.RunBar(name, "flatpak", "uninstall", "-y", name); err != nil {
+		if err := r.RunBar(name, "flatpak", "uninstall", "-y", "--", name); err != nil {
 			fmt.Fprintf(stderr, "pac: remove failed: %v\n", err)
 			return 1
 		}

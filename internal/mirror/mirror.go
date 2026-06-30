@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"starnix.net/pac/internal/run"
+	"starnix.net/pac/internal/validate"
 )
 
 // ApprovedNames returns the package names in the allowlist (each "- name: X"
@@ -47,7 +49,9 @@ func Closure(r run.Runner, resolver, pkgs []string) ([]string, error) {
 	if len(resolver) == 0 {
 		return nil, errors.New("mirror: resolver must have at least one element")
 	}
-	args := append(append([]string{}, resolver[1:]...), pkgs...)
+	// "--" ends the resolver's option parsing so a pkg beginning with '-' is
+	// treated as a target, not a flag.
+	args := append(append(append([]string{}, resolver[1:]...), "--"), pkgs...)
 	out, err := r.Capture(resolver[0], args...)
 	if err != nil {
 		return nil, err
@@ -55,9 +59,16 @@ func Closure(r run.Runner, resolver, pkgs []string) ([]string, error) {
 	set := map[string]bool{}
 	for _, line := range strings.Split(out, "\n") {
 		for _, field := range strings.Split(line, "\t") {
-			if name := strings.TrimSpace(field); name != "" {
-				set[name] = true
+			name := strings.TrimSpace(field)
+			if name == "" {
+				continue
 			}
+			// The resolver's stdout becomes allowlist content (a GitOps trust
+			// root), so every token is charset-validated before we trust it.
+			if err := validate.PkgName(name); err != nil {
+				return nil, fmt.Errorf("resolver returned %v", err)
+			}
+			set[name] = true
 		}
 	}
 	names := make([]string, 0, len(set))
@@ -84,26 +95,68 @@ func Missing(closure, approved []string) []string {
 	return missing
 }
 
-// AppendEntries appends allowlist entries (6-space indented, matching the
-// generated format) for each name. requested marks which names are explicitly
-// requested (note: explicit) versus pulled-in dependencies (note: dependency).
-// Entries are appended at end of file; the caller reviews the git diff.
-func AppendEntries(path string, names []string, requested map[string]bool) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+// atomicWrite replaces path's contents with data atomically: it writes a temp
+// file in the SAME directory, flushes it to stable storage, then renames it
+// over path. The original file's permission bits are preserved (a plain
+// os.WriteFile would reset them to 0644). The allowlist is a GitOps trust root,
+// so it must never be observed half-written.
+func atomicWrite(path string, data []byte) error {
+	mode := os.FileMode(0o644)
+	if fi, err := os.Stat(path); err == nil {
+		mode = fi.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".allowlist-*.tmp")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	tmpName := tmp.Name()
+	// Best-effort cleanup of the temp file if we bail before the rename.
+	defer func() {
+		if tmpName != "" {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpName, mode); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	tmpName = "" // renamed into place; nothing to clean up
+	return nil
+}
+
+// AppendEntries appends allowlist entries (6-space indented, matching the
+// generated format) for each name. requested marks which names are explicitly
+// requested (note: explicit) versus pulled-in dependencies (note: dependency).
+// Entries are appended at end of file; the caller reviews the git diff. The
+// rewrite is atomic (see atomicWrite).
+func AppendEntries(path string, names []string, requested map[string]bool) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var b strings.Builder
+	b.Write(data)
 	for _, name := range names {
 		note := "dependency"
 		if requested[name] {
 			note = "explicit"
 		}
-		if _, err := fmt.Fprintf(f, "      - name: %s\n        approved: true\n        note: %s\n", name, note); err != nil {
-			return err
-		}
+		fmt.Fprintf(&b, "      - name: %s\n        approved: true\n        note: %s\n", name, note)
 	}
-	return nil
+	return atomicWrite(path, []byte(b.String()))
 }
 
 // ExplicitNames returns the allowlist package names marked "note: explicit",
@@ -159,7 +212,7 @@ func RemoveEntries(path string, names []string) error {
 		}
 		out = append(out, lines[i])
 	}
-	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0o644)
+	return atomicWrite(path, []byte(strings.Join(out, "\n")))
 }
 
 // Orphaned determines which of pkgs (and their AUR deps) can be removed from

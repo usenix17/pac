@@ -111,7 +111,7 @@ func TestInstallSubcommandDispatches(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	last := f.Calls[len(f.Calls)-1]
-	if !reflect.DeepEqual(last, []string{"sudo", "pacman", "-S", "firefox"}) {
+	if !reflect.DeepEqual(last, []string{"sudo", "pacman", "-S", "--", "firefox"}) {
 		t.Fatalf("last call = %v, want sudo pacman -S firefox", last)
 	}
 }
@@ -155,7 +155,7 @@ func TestInstallAskReadsStdin(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	last := f.Calls[len(f.Calls)-1]
-	if !reflect.DeepEqual(last, []string{"flatpak", "install", "-y", "com.discordapp.Discord"}) {
+	if !reflect.DeepEqual(last, []string{"flatpak", "install", "-y", "--", "com.discordapp.Discord"}) {
 		t.Fatalf("last call = %v, want flatpak install (stdin chose flatpak)", last)
 	}
 }
@@ -169,7 +169,7 @@ func TestSearchSubcommandPrintsToStdout(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	wantCalls := [][]string{{"pacman", "-Ss", "firefox"}, {"flatpak", "search", "firefox"}}
+	wantCalls := [][]string{{"pacman", "-Ss", "--", "firefox"}, {"flatpak", "search", "--", "firefox"}}
 	if !reflect.DeepEqual(f.Calls, wantCalls) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
 	}
@@ -184,7 +184,7 @@ func TestSsAliasMapsToSearch(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	wantCalls := [][]string{{"pacman", "-Ss", "firefox"}, {"flatpak", "search", "firefox"}}
+	wantCalls := [][]string{{"pacman", "-Ss", "--", "firefox"}, {"flatpak", "search", "--", "firefox"}}
 	if !reflect.DeepEqual(f.Calls, wantCalls) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
 	}
@@ -196,7 +196,7 @@ func TestSearchJoinsMultiWordTerm(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	wantCalls := [][]string{{"pacman", "-Ss", "web browser"}, {"flatpak", "search", "web browser"}}
+	wantCalls := [][]string{{"pacman", "-Ss", "--", "web browser"}, {"flatpak", "search", "--", "web browser"}}
 	if !reflect.DeepEqual(f.Calls, wantCalls) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)
 	}
@@ -236,7 +236,7 @@ func TestRemoveSubcommandDispatches(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	want := [][]string{{"pacman", "-Qi", "firefox"}, {"sudo", "pacman", "-R", "firefox"}}
+	want := [][]string{{"pacman", "-Qi", "--", "firefox"}, {"sudo", "pacman", "-R", "--", "firefox"}}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("Calls = %v, want %v", f.Calls, want)
 	}

@@ -7,12 +7,14 @@ import (
 	"strings"
 
 	"starnix.net/pac/internal/run"
+	"starnix.net/pac/internal/validate"
 )
 
 // pacmanHas reports whether name is available in a pacman sync repo
-// (official or aur-mirror): `pacman -Si` exits 0 only if it exists.
+// (official or aur-mirror): `pacman -Si` exits 0 only if it exists. The "--"
+// guards against a name that begins with '-' being read as a flag.
 func pacmanHas(r run.Runner, name string) bool {
-	_, err := r.Capture("pacman", "-Si", name)
+	_, err := r.Capture("pacman", "-Si", "--", name)
 	return err == nil
 }
 
@@ -20,7 +22,7 @@ func pacmanHas(r run.Runner, name string) bool {
 // application id or the human-readable name (case-insensitive), and whether a
 // match was found.
 func flatpakAppID(r run.Runner, name string) (string, bool) {
-	out, _ := r.Capture("flatpak", "search", name)
+	out, _ := r.Capture("flatpak", "search", "--", name)
 	for _, line := range strings.Split(out, "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) < 4 {
@@ -38,6 +40,10 @@ func flatpakAppID(r run.Runner, name string) (string, bool) {
 // installs it. prefer ("system"|"flatpak"|"ask") decides when a package is
 // available from both; "ask" prompts on stdin. Returns a process exit code.
 func Install(r run.Runner, prefer, name string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if err := validate.Target(name); err != nil {
+		fmt.Fprintf(stderr, "pac: %v\n", err)
+		return 2
+	}
 	inPacman := pacmanHas(r, name)
 	appID, inFlatpak := flatpakAppID(r, name)
 
@@ -63,7 +69,7 @@ func Install(r run.Runner, prefer, name string, stdin io.Reader, stdout, stderr 
 }
 
 func installPacman(r run.Runner, name string, stderr io.Writer) int {
-	if err := r.Run("sudo", "pacman", "-S", name); err != nil {
+	if err := r.Run("sudo", "pacman", "-S", "--", name); err != nil {
 		fmt.Fprintf(stderr, "pac: install failed: %v\n", err)
 		return 1
 	}
@@ -71,10 +77,16 @@ func installPacman(r run.Runner, name string, stderr io.Writer) int {
 }
 
 func installFlatpak(r run.Runner, appID string, stderr io.Writer) int {
+	// appID comes from flatpak's own search output; re-validate it before exec
+	// as defense in depth, and pass "--" so it can never be read as a flag.
+	if err := validate.FlatpakID(appID); err != nil {
+		fmt.Fprintf(stderr, "pac: %v\n", err)
+		return 1
+	}
 	// Use -y (assume yes), NOT --noninteractive: --noninteractive suppresses
 	// flatpak's percentage progress, leaving RunBar's bar with nothing to
 	// parse. -y auto-confirms but keeps the progress stream we render.
-	if err := r.RunBar(appID, "flatpak", "install", "-y", appID); err != nil {
+	if err := r.RunBar(appID, "flatpak", "install", "-y", "--", appID); err != nil {
 		fmt.Fprintf(stderr, "pac: install failed: %v\n", err)
 		return 1
 	}

@@ -71,7 +71,7 @@ func TestClosureParsesAurDepends(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Closure = %v, want %v", got, want)
 	}
-	wantCall := [][]string{{"aur", "depends", "-n", "phantomjs"}}
+	wantCall := [][]string{{"aur", "depends", "-n", "--", "phantomjs"}}
 	if !reflect.DeepEqual(f.Calls, wantCall) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCall)
 	}
@@ -83,7 +83,7 @@ func TestClosureWithDockerResolver(t *testing.T) {
 	if _, err := mirror.Closure(f, resolver, []string{"foo"}); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	want := [][]string{{"docker", "run", "--rm", "img", "aur", "depends", "-n", "foo"}}
+	want := [][]string{{"docker", "run", "--rm", "img", "aur", "depends", "-n", "--", "foo"}}
 	if !reflect.DeepEqual(f.Calls, want) {
 		t.Fatalf("calls = %v, want %v", f.Calls, want)
 	}
@@ -195,8 +195,8 @@ func TestOrphanedKeepsSharedDep(t *testing.T) {
 	body := "data:\n  allowlist.yaml: |\n    packages:\n      - name: phantomjs\n        approved: true\n        note: explicit\n      - name: other\n        approved: true\n        note: explicit\n      - name: qt5-webkit\n        approved: true\n        note: dependency\n"
 	path := writeAllowlist(t, body)
 	f := &run.Fake{Results: []run.Call{
-		{Out: "qt5-webkit\tqt5-webkit\n"},               // closure(qt5-webkit)
-		{Out: "phantomjs\tqt5-webkit\nother\tother\n"},  // closure(roots: other, phantomjs)
+		{Out: "qt5-webkit\tqt5-webkit\n"},              // closure(qt5-webkit)
+		{Out: "phantomjs\tqt5-webkit\nother\tother\n"}, // closure(roots: other, phantomjs)
 	}}
 	removable, kept, err := mirror.Orphaned(f, []string{"aur", "depends", "-n"}, path, []string{"qt5-webkit"})
 	if err != nil {
@@ -207,5 +207,53 @@ func TestOrphanedKeepsSharedDep(t *testing.T) {
 	}
 	if !reflect.DeepEqual(kept, []string{"qt5-webkit"}) {
 		t.Fatalf("kept = %v, want [qt5-webkit]", kept)
+	}
+}
+
+func TestAppendEntriesPreservesModeAndIsAtomic(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "allowlist.yaml")
+	if err := os.WriteFile(p, []byte(sampleAllowlist), 0o640); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := mirror.AppendEntries(p, []string{"phantomjs"}, map[string]bool{"phantomjs": true}); err != nil {
+		t.Fatalf("AppendEntries: %v", err)
+	}
+	fi, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if got := fi.Mode().Perm(); got != 0o640 {
+		t.Fatalf("mode after append = %o, want 640 (atomic rename must preserve mode)", got)
+	}
+	// No leftover temp files from the rename in the directory.
+	entries, _ := os.ReadDir(filepath.Dir(p))
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".allowlist-") {
+			t.Fatalf("leftover temp file: %s", e.Name())
+		}
+	}
+}
+
+func TestRemoveEntriesPreservesMode(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "allowlist.yaml")
+	if err := os.WriteFile(p, []byte(sampleAllowlist), 0o600); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := mirror.RemoveEntries(p, []string{"qt5-webkit"}); err != nil {
+		t.Fatalf("RemoveEntries: %v", err)
+	}
+	fi, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if got := fi.Mode().Perm(); got != 0o600 {
+		t.Fatalf("mode after remove = %o, want 600", got)
+	}
+}
+
+func TestClosureRejectsMalformedResolverOutput(t *testing.T) {
+	f := &run.Fake{Results: []run.Call{{Out: "ok\tevil; rm -rf\n"}}}
+	if _, err := mirror.Closure(f, []string{"aur", "depends", "-n"}, []string{"ok"}); err == nil {
+		t.Fatal("expected error for malformed resolver token, got nil")
 	}
 }

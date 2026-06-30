@@ -42,8 +42,15 @@ func (Real) RunBar(label, name string, args ...string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	progress.Render(pipe, os.Stderr, 24, label) // blocks until the command closes stdout
-	return cmd.Wait()
+	// Render blocks until it has fully drained the child's stdout (so Wait
+	// cannot deadlock on a still-writing child). A child failure is the more
+	// meaningful error, so it wins; otherwise a render/scan error surfaces and
+	// is never silently treated as success.
+	renderErr := progress.Render(pipe, os.Stderr, 24, label)
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+	return renderErr
 }
 
 func (Real) Capture(name string, args ...string) (string, error) {

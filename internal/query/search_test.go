@@ -19,8 +19,8 @@ func TestSearchQueriesBothBackends(t *testing.T) {
 	got := query.Search(f, "firefox")
 
 	wantCalls := [][]string{
-		{"pacman", "-Ss", "firefox"},
-		{"flatpak", "search", "firefox"},
+		{"pacman", "-Ss", "--", "firefox"},
+		{"flatpak", "search", "--", "firefox"},
 	}
 	if !reflect.DeepEqual(f.Calls, wantCalls) {
 		t.Fatalf("calls = %v, want %v", f.Calls, wantCalls)

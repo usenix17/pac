@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"starnix.net/pac/internal/config"
@@ -24,8 +25,11 @@ func TestLoadDefaults(t *testing.T) {
 	if c.Allowlist != "/home/x/ArgoCD/applications/aur-mirror/allowlist.yaml" {
 		t.Errorf("Allowlist = %q", c.Allowlist)
 	}
-	if c.BuilderImage != "registry.starnix.net/library/aur-builder:latest" {
-		t.Errorf("BuilderImage = %q", c.BuilderImage)
+	// The default builder image must be digest-pinned (never a floating tag),
+	// so push access to the registry can't swap the signer's code. The exact
+	// digest rotates via pin-image.sh, so assert the shape, not a literal.
+	if !strings.HasPrefix(c.BuilderImage, "registry.starnix.net/library/aur-builder@sha256:") {
+		t.Errorf("BuilderImage = %q, want a digest-pinned aur-builder ref", c.BuilderImage)
 	}
 	if c.Prefer != "system" {
 		t.Errorf("Prefer = %q, want system", c.Prefer)

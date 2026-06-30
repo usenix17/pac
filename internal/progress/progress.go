@@ -100,8 +100,16 @@ func clip(s string, n int) string {
 // a fresh line when flatpak moves to the next item. label is the caller's known
 // target (e.g. the app id for a single install); it is used until the stream
 // reveals a per-item ref, and as the fallback when none is found.
-func Render(r io.Reader, w io.Writer, width int, label string) {
+//
+// Render always consumes r to completion (even on a scan error it drains the
+// rest), so the child writing to the pipe never blocks on a full buffer and the
+// caller's cmd.Wait cannot deadlock. It returns any scanner error: a failed
+// scan (e.g. a line over the token limit) must not be mistaken for clean EOF.
+func Render(r io.Reader, w io.Writer, width int, label string) error {
 	sc := bufio.NewScanner(r)
+	// flatpak can emit long progress/table lines; grow the max token to 1 MiB
+	// so an ordinary line never trips bufio.Scanner's default 64 KiB limit.
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	refs := map[int]string{} // item index -> ref, learned from the table
 	cur := label             // label for the item currently drawing
 	idx := 0                 // current item index (0 = none yet)
@@ -142,4 +150,11 @@ func Render(r io.Reader, w io.Writer, width int, label string) {
 	if drawn {
 		fmt.Fprint(w, "\n")
 	}
+	if err := sc.Err(); err != nil {
+		// Drain whatever the child keeps writing so its stdout pipe never fills
+		// and blocks it; only then surface the error.
+		_, _ = io.Copy(io.Discard, r)
+		return err
+	}
+	return nil
 }
