@@ -8,6 +8,7 @@ import (
 
 	"starnix.net/pac/internal/cmd"
 	"starnix.net/pac/internal/config"
+	"starnix.net/pac/internal/preflight"
 	"starnix.net/pac/internal/query"
 	"starnix.net/pac/internal/run"
 )
@@ -64,6 +65,7 @@ func Run(args []string, r run.Runner, stdin io.Reader, stdout, stderr io.Writer)
 		fmt.Fprintf(stdout, "pac %s\n", Version)
 		return 0
 	case "update":
+		preflight.SigLevelCheck(preflight.DefaultPacmanConf, stderr)
 		if err := cmd.Update(r); err != nil {
 			fmt.Fprintf(stderr, "pac: update failed: %v\n", err)
 			return 1
@@ -74,13 +76,27 @@ func Run(args []string, r run.Runner, stdin io.Reader, stdout, stderr io.Writer)
 			fmt.Fprintln(stderr, "pac: install requires a package name (usage: pac install <name>)")
 			return 2
 		}
-		return cmd.Install(r, config.Load().Prefer, args[1], stdin, stdout, stderr)
+		preflight.SigLevelCheck(preflight.DefaultPacmanConf, stderr)
+		prefer := config.Load().Prefer
+		code := 0
+		for _, name := range args[1:] {
+			if c := cmd.Install(r, prefer, name, stdin, stdout, stderr); c != 0 {
+				code = c // remember the failure but keep installing the rest
+			}
+		}
+		return code
 	case "remove":
 		if len(args) < 2 {
 			fmt.Fprintln(stderr, "pac: remove requires a package name (usage: pac remove <name>)")
 			return 2
 		}
-		return cmd.Remove(r, args[1], stderr)
+		code := 0
+		for _, name := range args[1:] {
+			if c := cmd.Remove(r, name, stderr); c != 0 {
+				code = c // remember the failure but keep removing the rest
+			}
+		}
+		return code
 	case "mirror":
 		return cmd.Mirror(r, config.Load(), args[1:], stdout, stderr)
 	case "search":

@@ -9,7 +9,19 @@ import (
 	"starnix.net/pac/internal/config"
 	"starnix.net/pac/internal/mirror"
 	"starnix.net/pac/internal/run"
+	"starnix.net/pac/internal/validate"
 )
+
+// validatePkgs rejects any user-supplied package name outside the Arch pkgname
+// charset before it reaches the resolver (aur/docker). Returns the first error.
+func validatePkgs(pkgs []string) error {
+	for _, p := range pkgs {
+		if err := validate.PkgName(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // resolverPrefix returns the `aur depends -n` invocation: local aurutils if
 // present, otherwise via the builder image in docker.
@@ -44,6 +56,10 @@ func Mirror(r run.Runner, cfg config.Config, args []string, stdout, stderr io.Wr
 	case "add", "show":
 		if len(pkgs) == 0 {
 			fmt.Fprintf(stderr, "pac: mirror %s requires a package name\n", sub)
+			return 2
+		}
+		if err := validatePkgs(pkgs); err != nil {
+			fmt.Fprintf(stderr, "pac: %v\n", err)
 			return 2
 		}
 		closure, err := mirror.Closure(r, resolverPrefix(cfg.BuilderImage), pkgs)
@@ -82,6 +98,10 @@ func Mirror(r run.Runner, cfg config.Config, args []string, stdout, stderr io.Wr
 	case "remove":
 		if len(pkgs) == 0 {
 			fmt.Fprintln(stderr, "pac: mirror remove requires a package name")
+			return 2
+		}
+		if err := validatePkgs(pkgs); err != nil {
+			fmt.Fprintf(stderr, "pac: %v\n", err)
 			return 2
 		}
 		removable, kept, err := mirror.Orphaned(r, resolverPrefix(cfg.BuilderImage), cfg.Allowlist, pkgs)

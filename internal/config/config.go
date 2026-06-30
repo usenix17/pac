@@ -79,8 +79,13 @@ func Load() Config {
 	file := parseFile(configPath())
 	home := os.Getenv("HOME")
 	return Config{
-		Allowlist:    resolve("PAC_ALLOWLIST", file, "allowlist", filepath.Join(home, "ArgoCD/applications/aur-mirror/allowlist.yaml")),
-		BuilderImage: resolve("PAC_BUILDER_IMAGE", file, "builder_image", "registry.starnix.net/library/aur-builder:latest"),
+		Allowlist: resolve("PAC_ALLOWLIST", file, "allowlist", filepath.Join(home, "ArgoCD/applications/aur-mirror/allowlist.yaml")),
+		// The builder image runs `aur depends` whose stdout becomes allowlist
+		// content, so it must be pinned by digest (@sha256:...), never a mutable
+		// tag like :latest -- a moved tag could swap in a tampered resolver.
+		// Replace the placeholder digest below with the real one for your
+		// registry; override per-machine with PAC_BUILDER_IMAGE.
+		BuilderImage: resolve("PAC_BUILDER_IMAGE", file, "builder_image", "registry.starnix.net/library/aur-builder@sha256:c88d9b7415ab82c7a19b179f716a92a9a82583916302e9096e28078ac550825c"),
 		Prefer:       resolve("PAC_PREFER", file, "prefer", "system"),
 	}
 }

@@ -17,7 +17,7 @@ func TestParsePercent(t *testing.T) {
 		{"100% complete", 100, true},
 		{"  7%", 7, true},
 		{"no percent here", 0, false},
-		{"999% bogus", 0, false}, // out of range -> not ok
+		{"999% bogus", 0, false},               // out of range -> not ok
 		{"downloading 12% then 34%", 34, true}, // last wins
 	}
 	for _, c := range cases {
