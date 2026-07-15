@@ -85,7 +85,7 @@ func Load() Config {
 		// tag like :latest -- a moved tag could swap in a tampered resolver.
 		// Replace the placeholder digest below with the real one for your
 		// registry; override per-machine with PAC_BUILDER_IMAGE.
-		BuilderImage: resolve("PAC_BUILDER_IMAGE", file, "builder_image", "registry.starnix.net/library/aur-builder@sha256:48c1795aebe3f2ee0cc72bb9baef7c3b33086d678f5614cfb8472a6c21d34899"),
+		BuilderImage: resolve("PAC_BUILDER_IMAGE", file, "builder_image", "registry.starnix.net/library/aur-builder@sha256:87535cef8e8feda2cc0c1212aab20190714157d1defc9636af0db7ce9a0f3484"),
 		Prefer:       resolve("PAC_PREFER", file, "prefer", "system"),
 	}
 }
